@@ -136,7 +136,7 @@ NOTE: It may take 5-10 minutes after you see 'SUCCESS' for the application to be
 - To create new index with a different strategy
   - Run ```azd set SEARCH_INDEX_NAME <new-index-name>```
   - **On Windows** Run ```scripts\prepdocs.ps1 -IndexerStrategy indexer-image-verbal ```
-  - **On Linux** Run ```scripts\prepdocs.ps1 indexer-image-verbal ```
+  - **On Linux** Run ```scripts\prepdocs.sh indexer-image-verbal ```
 ---
 
 ## Azure Services Used for Deployment  
