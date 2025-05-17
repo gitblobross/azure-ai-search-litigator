@@ -47,14 +47,15 @@ You can create an index using the AI Search portal's quick wizard for the multim
         -SearchIndexName "my-index" `
         -SearchServiceEndpoint "https://myservice.search.windows.net" `
         -StorageAccountUrl "https://myaccount.blob.core.windows.net" `
-        -KnowledgeStoreContainerName "mm-knowledgestore-artifacts" `
-        -DataSourcesContainerName "mm-data-sources" `
+        -KnowledgeStoreContainerName "knowledgestore-artifacts" `
+        -DataSourcesContainerName "data-sources" `
         -AzureOpenAiEndpoint "https://myopenai.openai.azure.com" `
         -AzureOpenAiDeploymentName "my-deployment" `
         -AzureOpenAiEndpointChatCompletionModelName "gpt-4o"
    ```
 
-   Replace the placeholders (`<...>`) with your specific values. This script will configure the app to use the newly created index.
+   Replace the placeholders (`<...>`) with your specific values. This script will configure the app to use the newly created index.  
+   **Assumption**: For app simplicity, ensure 'KnowledgeStoreContainerName' and 'DataSourcesContainerName' must be from same storage account.
 - Ensure your Azure Entra ID user object ID has been granted the necessary permissions for all required resources. See [Role Mapping for the Application](#role-mapping-for-the-application) for details.
 - Run:
    ```bash
