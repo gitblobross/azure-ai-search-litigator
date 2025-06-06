@@ -62,8 +62,7 @@ python3 -m venv .venv
 # --------------------------------------------------------------------
 echo "🚀  Starting FastAPI"
 
-
-# Use Python directly with aiohttp's runner (since this is not FastAPI/ASGI)
+# Launch FastAPI using Uvicorn
 exec .venv/bin/uvicorn app:app \
      --app-dir "$backendPath" \
      --host 0.0.0.0 --port 5000 --reload
