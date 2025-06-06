@@ -13,7 +13,23 @@ export default defineConfig({
         outDir: "../backend/static",
         emptyOutDir: true,
         sourcemap: true,
-        target: "esnext"
+        target: "esnext",
+        chunkSizeWarningLimit: 2000,
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('react')) {
+                            return 'react-vendor';
+                        }
+                        if (id.includes('azure-search-documents') || id.includes('azure-storage-blob')) {
+                            return 'azure-sdk';
+                        }
+                        return 'vendor';
+                    }
+                }
+            }
+        }
     },
     server: {
         proxy: {
