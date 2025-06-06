@@ -38,11 +38,7 @@ export const NavBar = ({ setConfig, onNewChat, config }: Props) => {
                         </div>
                     </div>
                     {builderUrl && (
-                        <Button
-                            appearance="secondary"
-                            className="custom-menu-item"
-                            onClick={() => window.open(builderUrl, "_blank")}
-                        >
+                        <Button appearance="secondary" className="custom-menu-item" onClick={() => window.open(builderUrl, "_blank")}>
                             GPT Builder
                         </Button>
                     )}
