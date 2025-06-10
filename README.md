@@ -177,6 +177,20 @@ The following table maps the roles used by the application to their respective f
 
 ![image](/docs/images/E2E_multimodal_flow.png)
 
+## Simple FastAPI example
+
+For a minimal RAG demo using FastAPI, run:
+
+```bash
+uvicorn src.backend.fastapi_rag_demo:app --reload
+```
+
+The [`fastapi_rag_demo.py`](src/backend/fastapi_rag_demo.py) script connects to
+your Azure AI Search index and Azure OpenAI deployment using the environment
+variables `SEARCH_SERVICE_ENDPOINT`, `SEARCH_INDEX_NAME`,
+`AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` and
+`AZURE_OPENAI_MODEL_NAME`.
+
 ## Troubleshooting
 - What is the region availability for Azure OpenAI service?  
   Please visit [available regions](https://learn.microsoft.com/azure/ai-services/openai/concepts/models?tabs=global-standard%2Cstandard-chat-completions#global-standard-model-availability)
