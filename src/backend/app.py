@@ -117,6 +117,7 @@ def inject_clients():
 clients = inject_clients()
 app = FastAPI()
 app.mount("/", StaticFiles(directory=clients['current_directory'] / "static"), name="static")
+clients['mmrag'].attach_to_app(app, "/chat")
 
 @app.get("/")
 async def root():
