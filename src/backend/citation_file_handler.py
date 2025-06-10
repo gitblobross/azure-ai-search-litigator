@@ -1,4 +1,5 @@
-from aiohttp import web
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
 from azure.storage.blob.aio import ContainerClient, BlobServiceClient
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 
@@ -14,13 +15,13 @@ class CitationFilesHandler:
         self.container_client = samples_container_client
         self.blob_service_client = blob_service_client
 
-    async def handle(self, request):
+    async def handle(self, request: Request):
         try:
             data = await request.json()
             response = await self._get_file_url(data["fileName"])
-            return web.json_response(response)
+            return JSONResponse(response)
         except Exception as e:
-            return web.json_response({"status": "error", "message": str(e)}, status=500)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def _get_file_url(self, blob_name: str):
         blob_client = self.container_client.get_blob_client(
