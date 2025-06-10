@@ -9,15 +9,20 @@ from openai import AsyncAzureOpenAI
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.indexes.aio import SearchIndexClient
-from azure.search.documents.agent.aio import KnowledgeAgentRetrievalClient
+try:
+    from azure.search.documents.agent.aio import KnowledgeAgentRetrievalClient
+    AGENT_AVAILABLE = True
+except ImportError:
+    KnowledgeAgentRetrievalClient = None
+    AGENT_AVAILABLE = False
 from azure.core.pipeline.policies import UserAgentPolicy
 from azure.storage.blob.aio import BlobServiceClient
-from search_grounding import SearchGroundingRetriever
-from knowledge_agent import KnowledgeAgentGrounding
-from constants import USER_AGENT
-from multimodalrag import MultimodalRag
-from data_model import DocumentPerChunkDataModel
-from citation_file_handler import CitationFilesHandler
+from src.backend.search_grounding import SearchGroundingRetriever
+from src.backend.knowledge_agent import KnowledgeAgentGrounding
+from src.backend.constants import USER_AGENT
+from src.backend.multimodalrag import MultimodalRag
+from src.backend.data_model import DocumentPerChunkDataModel
+from src.backend.citation_file_handler import CitationFilesHandler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,23 +58,26 @@ def inject_clients():
         user_agent_policy=UserAgentPolicy(base_user_agent=USER_AGENT),
     )
 
-    ka_retrieval_client = KnowledgeAgentRetrievalClient(
-        agent_name=knowledge_agent_name,
-        endpoint=search_endpoint,
-        credential=tokenCredential,
-    )
-
-    knowledge_agent = KnowledgeAgentGrounding(
-        ka_retrieval_client,
-        search_client,
-        index_client,
-        data_model,
-        search_index_name,
-        knowledge_agent_name,
-        openai_endpoint,
-        openai_deployment_name,
-        chatcompletions_model_name,
-    )
+    # KnowledgeAgent init is commented for environments without agent SDK (public RAG only)
+    if AGENT_AVAILABLE and knowledge_agent_name:
+        ka_retrieval_client = KnowledgeAgentRetrievalClient(
+            agent_name=knowledge_agent_name,
+            endpoint=search_endpoint,
+            credential=tokenCredential,
+        )
+        knowledge_agent = KnowledgeAgentGrounding(
+            ka_retrieval_client,
+            search_client,
+            index_client,
+            data_model,
+            search_index_name,
+            knowledge_agent_name,
+            openai_endpoint,
+            openai_deployment_name,
+            chatcompletions_model_name,
+        )
+    else:
+        knowledge_agent = None  # Not available in public SDK; classic search only
 
     openai_client = AsyncAzureOpenAI(
         azure_ad_token_provider=tokenProvider,

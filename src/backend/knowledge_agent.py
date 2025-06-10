@@ -3,19 +3,22 @@ import json
 import logging
 import aiohttp
 from typing import List
-from data_model import DataModel
-from models import Message, GroundingResults, GroundingResult
-from azure.search.documents.agent.aio import KnowledgeAgentRetrievalClient
-from azure.search.documents.agent.models import KnowledgeAgentRetrievalResponse
-from azure.search.documents.indexes.models import (
-    KnowledgeAgent as AzureSearchKnowledgeAgent,
-    KnowledgeAgentTargetIndex,
-    KnowledgeAgentAzureOpenAIModel,
-    AzureOpenAIVectorizerParameters,
-)
+from src.backend.data_model import DataModel
+from src.backend.models import Message, GroundingResults, GroundingResult
+try:
+    from azure.search.documents.agent.aio import KnowledgeAgentRetrievalClient
+    from azure.search.documents.agent.models import KnowledgeAgentRetrievalResponse
+    from azure.search.documents.indexes.models import (
+        KnowledgeAgent as AzureSearchKnowledgeAgent,
+        KnowledgeAgentTargetIndex,
+        KnowledgeAgentAzureOpenAIModel,
+        AzureOpenAIVectorizerParameters,
+    )
+except ImportError:
+    KnowledgeAgentRetrievalClient = None
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.indexes.aio import SearchIndexClient
-from grounding_retriever import GroundingRetriever
+from src.backend.grounding_retriever import GroundingRetriever
 
 logger = logging.getLogger("grounding")
 

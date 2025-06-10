@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from models import (
+from src.backend.models import (
     SearchRequestParameters,
     SearchConfig,
     GroundingResult,

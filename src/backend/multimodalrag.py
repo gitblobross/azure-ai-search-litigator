@@ -2,21 +2,24 @@ import json
 import logging
 from os import path
 from azure.search.documents.aio import SearchClient
-from azure.search.documents.agent import KnowledgeAgentRetrievalClient
+try:
+    from azure.search.documents.agent import KnowledgeAgentRetrievalClient
+except ImportError:
+    KnowledgeAgentRetrievalClient = None
 from azure.storage.blob import ContainerClient
 from openai import AsyncAzureOpenAI
 from typing import List
-from grounding_retriever import GroundingRetriever
-from knowledge_agent import KnowledgeAgentGrounding
-from helpers import get_blob_as_base64
-from search_grounding import SearchGroundingRetriever
-from rag_base import RagBase, SSEStream
-from data_model import DataModel
-from prompts import (
+from src.backend.grounding_retriever import GroundingRetriever
+from src.backend.knowledge_agent import KnowledgeAgentGrounding
+from src.backend.helpers import get_blob_as_base64
+from src.backend.search_grounding import SearchGroundingRetriever
+from src.backend.rag_base import RagBase, SSEStream
+from src.backend.data_model import DataModel
+from src.backend.prompts import (
     SYSTEM_PROMPT_NO_META_DATA,
 )
-from processing_step import ProcessingStep
-from models import GroundingResult, Message, SearchConfig, GroundingResults
+from src.backend.processing_step import ProcessingStep
+from src.backend.models import GroundingResult, Message, SearchConfig, GroundingResults
 
 logger = logging.getLogger("multimodalrag")
 

@@ -6,10 +6,17 @@ from typing import List
 import uuid
 from abc import ABC, abstractmethod
 from enum import Enum
+
 import asyncio
 from fastapi import FastAPI, Request
-from fastapi.responses import EventSourceResponse
-import instructor
+# PATCHED: Use EventSourceResponse from sse_starlette
+from sse_starlette.sse import EventSourceResponse
+# PATCH: Make instructor optional
+try:
+    import instructor
+    INSTRUCTOR_AVAILABLE = True
+except ImportError:
+    INSTRUCTOR_AVAILABLE = False
 from openai import AsyncAzureOpenAI
 from grounding_retriever import GroundingRetriever
 from models import (
