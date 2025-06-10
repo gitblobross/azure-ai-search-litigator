@@ -18,14 +18,14 @@ try:
 except ImportError:
     INSTRUCTOR_AVAILABLE = False
 from openai import AsyncAzureOpenAI
-from grounding_retriever import GroundingRetriever
-from models import (
+from src.backend.grounding_retriever import GroundingRetriever
+from src.backend.models import (
     AnswerFormat,
     SearchConfig,
     GroundingResult,
     GroundingResults,
 )
-from processing_step import ProcessingStep
+from src.backend.processing_step import ProcessingStep
 
 logger = logging.getLogger("rag")
 
