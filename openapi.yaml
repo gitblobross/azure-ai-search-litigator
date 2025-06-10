@@ -1,0 +1,46 @@
+openapi: 3.0.1
+info:
+  title: Azure AI Search Multimodal RAG Plugin
+  description: |
+    Plugin exposing endpoints for retrieving citation documents and listing
+    indexes for the Azure AI Search Multimodal RAG demo.
+  version: "1.0.0"
+servers:
+  - url: https://example.com
+paths:
+  /list_indexes:
+    get:
+      operationId: listIndexes
+      summary: List available search indexes.
+      responses:
+        '200':
+          description: List of index names.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /get_citation_doc:
+    post:
+      operationId: getCitationDocument
+      summary: Get a temporary download link for a citation document.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fileName
+              properties:
+                fileName:
+                  type: string
+                  description: The filename of the citation document.
+      responses:
+        '200':
+          description: Signed URL to the requested citation file.
+          content:
+            application/json:
+              schema:
+                type: string
