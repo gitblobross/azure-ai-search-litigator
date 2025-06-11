@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from rich.logging import RichHandler
 from openai import AsyncAzureOpenAI
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
@@ -131,6 +132,13 @@ def inject_clients():
 
 clients = inject_clients()
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.mount("/", StaticFiles(directory=clients['current_directory'] / "static"), name="static")
 clients['mmrag'].attach_to_app(app, "/chat")
 clients['mmrag'].attach_to_app(app, "/multiindex_chat")
