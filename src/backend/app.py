@@ -172,8 +172,15 @@ async def root():
 
 @app.get("/list_indexes")
 async def list_indexes():
-    # …
+    index_client = clients['index_client']
+    indexes = []
+    async for idx in index_client.list_indexes():
+        indexes.append(idx.name)
+    return indexes
 
+# ── line 174 decorator ──
 @app.post("/get_citation_doc")
 async def get_citation_doc(request: Request):
-    # …
+    # ← this block must be indented under the def
+    citation_files_handler = clients['citation_files_handler']
+    return await citation_files_handler.handle(request)
