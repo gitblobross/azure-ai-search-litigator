@@ -1,48 +1,46 @@
 #!/usr/bin/env sh
-set -e  # abort on error
+set -e  # abort on any error
 
 root="$(pwd)"
 backendPath="$root/src/backend"
 frontendPath="$root/src/frontend"
 azurePath="$root/.azure"
+venvPath="$root/.venv"
 
-# --------------------------------------------------------------------
-# 1. Locate the azd-generated .env file (first match only)
-# --------------------------------------------------------------------
+# -----------------------------------------------------------
+# 0.  Make sure Python can import  src.*  from anywhere
+# -----------------------------------------------------------
+export PYTHONPATH="${PYTHONPATH}:${root}"
+
+# -----------------------------------------------------------
+# 1.  Locate the azd-generated .env (first match)
+# -----------------------------------------------------------
 envFile="$(find "$azurePath" -type f -name '.env' | head -n 1)"
-
 if [ -z "$envFile" ] || [ ! -f "$envFile" ]; then
   echo "❌  No .env found under $azurePath – run 'azd up' first."
   exit 1
 fi
-
 echo "✅  Found azd .env: $envFile"
 
-# --------------------------------------------------------------------
-# 2. Export everything in .env into the shell
-# --------------------------------------------------------------------
-set -a
-. "$envFile"
-set +a
+set -a && . "$envFile" && set +a   # export everything
 
-# --------------------------------------------------------------------
-# 3. (Optional) overlay values from 'azd env get-values' if azd ≥ 1.0
-# --------------------------------------------------------------------
+# -----------------------------------------------------------
+# 2.  Overlay azd env (if jq + azd available)
+# -----------------------------------------------------------
 if command -v azd >/dev/null; then
-  azdJson="$(azd env get-values --output json 2>/dev/null || true)"
-  if echo "$azdJson" | grep -q '^{'; then
-    if ! command -v jq >/dev/null; then
-      echo "⚠️  jq not installed; skipping azd overlay."
-    else
+  if azdJson="$(azd env get-values --output json 2>/dev/null)" && echo "$azdJson" | grep -q '^{'; then
+    if command -v jq >/dev/null; then
       echo "🔄  Overlaying variables from azd environment"
       eval "$(echo "$azdJson" | jq -r 'to_entries|.[]|"export \(.key)=\(.value)"')"
+    else
+      echo "⚠️  jq not installed; skipping azd overlay."
     fi
   fi
 fi
 
-# --------------------------------------------------------------------
-# 4. Build frontend (if present)
-# --------------------------------------------------------------------
+# -----------------------------------------------------------
+# 3.  Build the frontend (if present)
+# -----------------------------------------------------------
 if [ -d "$frontendPath" ]; then
   echo "▶️  Installing & building frontend"
   (cd "$frontendPath" && npm install && npm run build)
@@ -50,24 +48,20 @@ else
   echo "ℹ️  No frontend directory – skipping npm build"
 fi
 
-# --------------------------------------------------------------------
-# 5. Create Python venv & install deps
-# --------------------------------------------------------------------
-echo "🐍  Creating virtualenv"
-python3 -m venv .venv
-.venv/bin/python -m pip --quiet install -r "$backendPath/requirements.txt"
+# -----------------------------------------------------------
+# 4.  Create venv & install deps (if not yet created)
+# -----------------------------------------------------------
+if [ ! -d "$venvPath" ]; then
+  echo "🐍  Creating virtualenv"
+  python3 -m venv "$venvPath"
+  "$venvPath/bin/pip" install --quiet -r "$backendPath/requirements.txt"
+fi
 
-# --------------------------------------------------------------------
-# 6. Launch FastAPI with Uvicorn (hot-reload on code changes)
-# --------------------------------------------------------------------
+# -----------------------------------------------------------
+# 5.  Launch FastAPI with hot-reload
+# -----------------------------------------------------------
 echo "🚀  Starting FastAPI"
-
-# Launch FastAPI using Uvicorn
-exec .venv/bin/uvicorn app:app \
-     --app-dir "$backendPath" \
-     --host 0.0.0.0 --port 5000 --reload
-
-
-
-
-
+exec "$venvPath/bin/uvicorn" src.backend.app:app \
+     --reload \
+     --host 0.0.0.0 --port 5000 \
+     --app-dir "$root"
