@@ -23,6 +23,13 @@ from src.backend.constants import USER_AGENT
 from src.backend.multimodalrag import MultimodalRag
 from src.backend.data_model import DocumentPerChunkDataModel
 from src.backend.citation_file_handler import CitationFilesHandler
+Header, Depends
+
+    def get_api_key(x_api_key:
+ str = Header(default=None)):
+        # Accept any key or no
+ key in dev/demo
+        return x_api_key
 
 logging.basicConfig(
     level=logging.INFO,
