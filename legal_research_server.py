@@ -2,6 +2,7 @@ import os
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.services.rag_service import RagService
@@ -13,6 +14,13 @@ if not OPENAI_API_KEY:
     RagService  # noqa: F401
 
 app = FastAPI(title="Litigator Legal Research MCP")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
