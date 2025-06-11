@@ -23,13 +23,31 @@ from src.backend.constants import USER_AGENT
 from src.backend.multimodalrag import MultimodalRag
 from src.backend.data_model import DocumentPerChunkDataModel
 from src.backend.citation_file_handler import CitationFilesHandler
-Header, Depends
 
-    def get_api_key(x_api_key:
- str = Header(default=None)):
-        # Accept any key or no
- key in dev/demo
-        return x_api_key
+# ---- Validate required environment variables ----
+REQUIRED_ENV_VARS = [
+    "AZURE_OPENAI_MODEL_NAME",
+    "AZURE_OPENAI_ENDPOINT",
+    "SEARCH_SERVICE_ENDPOINT",
+    "SEARCH_INDEX_NAME",
+    "KNOWLEDGE_AGENT_NAME",
+    "AZURE_OPENAI_DEPLOYMENT",
+    "ARTIFACTS_STORAGE_ACCOUNT_URL",
+    "ARTIFACTS_STORAGE_CONTAINER",
+]
+
+def check_required_env_vars():
+    missing = [v for v in REQUIRED_ENV_VARS if not os.environ.get(v)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}. Please check your .env file.")
+
+check_required_env_vars()
+
+from fastapi import Header, Depends
+
+def get_api_key(x_api_key: str = Header(default=None)):
+    # Accept any key or no key in dev/demo
+    return x_api_key
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,17 +69,19 @@ def inject_clients():
     knowledge_agent_name = os.environ["KNOWLEDGE_AGENT_NAME"]
     openai_deployment_name = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
+    from azure.core.credentials import AzureKeyCredential
+    search_key = os.environ["SEARCH_KEY"]
     search_client = SearchClient(
         endpoint=search_endpoint,
         index_name=search_index_name,
-        credential=tokenCredential,
+        credential=AzureKeyCredential(search_key),
         user_agent_policy=UserAgentPolicy(base_user_agent=USER_AGENT),
     )
     data_model = DocumentPerChunkDataModel()
 
     index_client = SearchIndexClient(
         endpoint=search_endpoint,
-        credential=tokenCredential,
+        credential=AzureKeyCredential(search_key),
         user_agent_policy=UserAgentPolicy(base_user_agent=USER_AGENT),
     )
 
@@ -130,10 +150,21 @@ def inject_clients():
     }
 
 clients = inject_clients()
-app = FastAPI()
+app = FastAPI(
+    title="Litigator – Multi-Index RAG API",
+    version="1.0.0",
+    description="…"
+)
+
+# 2️⃣ Mount static & attach RAG endpoints
 app.mount("/", StaticFiles(directory=clients['current_directory'] / "static"), name="static")
 clients['mmrag'].attach_to_app(app, "/chat")
 clients['mmrag'].attach_to_app(app, "/multiindex_chat")
+
+# 3️⃣ Now define your introspection & other routes *below* the app object
+@app.get("/routes")
+def list_routes():
+    return [route.path for route in app.router.routes]
 
 @app.get("/")
 async def root():
@@ -141,13 +172,8 @@ async def root():
 
 @app.get("/list_indexes")
 async def list_indexes():
-    index_client = clients['index_client']
-    indexes = []
-    async for index in index_client.list_indexes():
-        indexes.append(index.name)
-    return indexes
+    # …
 
 @app.post("/get_citation_doc")
 async def get_citation_doc(request: Request):
-    citation_files_handler = clients['citation_files_handler']
-    return await citation_files_handler.handle(request)
+    # …
