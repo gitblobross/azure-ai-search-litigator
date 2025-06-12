@@ -1,3 +1,12 @@
+import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv(dotenv_path='/workspaces/azure-ai-search-multimodal-sample/.azure/.env')
+
+# You can access your environment variables here
+model_name = os.getenv('AZURE_OPENAI_MODEL_NAME')
+print(f"Loaded model name: {model_name}")
 import logging
 import os
 from pathlib import Path
