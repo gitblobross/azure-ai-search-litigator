@@ -18,6 +18,7 @@ interface Props {
 
 export const NavBar = ({ setConfig, onNewChat, config }: Props) => {
     const [isOpen, setIsOpen] = useState(false);
+    const builderUrl = import.meta.env.VITE_GPT_BUILDER_URL as string | undefined;
 
     const getToolTipContent = () => {
         return isOpen ? "Close Settings" : "Open Settings";
@@ -36,6 +37,11 @@ export const NavBar = ({ setConfig, onNewChat, config }: Props) => {
                             <SearchSettings config={config} setConfig={setConfig} />
                         </div>
                     </div>
+                    {builderUrl && (
+                        <Button appearance="secondary" className="custom-menu-item" onClick={() => window.open(builderUrl, "_blank")}>
+                            GPT Builder
+                        </Button>
+                    )}
                 </div>
             </NavDrawer>
             <NavDrawerHeader style={{ width: "25px" }}>

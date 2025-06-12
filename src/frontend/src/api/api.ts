@@ -1,11 +1,12 @@
 import { EventSourceMessage, fetchEventSource } from "@microsoft/fetch-event-source";
 
 import { SearchConfig } from "../components/SearchSettings";
+import { ChatRequestMessage } from "./models";
 
 const sendChatApi = async (
     message: string,
     requestId: string,
-    chatThread: any,
+    chatThread: ChatRequestMessage[],
     config: SearchConfig,
     onMessage: (message: EventSourceMessage) => void,
     onError?: (err: unknown) => void

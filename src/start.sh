@@ -1,45 +1,67 @@
-#!/bin/sh
-root=$(pwd)
+#!/usr/bin/env sh
+set -e  # abort on any error
+
+root="$(pwd)"
 backendPath="$root/src/backend"
-azurePath="$root/.azure"
 frontendPath="$root/src/frontend"
+azurePath="$root/.azure"
+venvPath="$root/.venv"
 
-# find the .env file in the azurePath directory recursively
-envFile=$(find $azurePath -type f -name ".env"| head -n 1)
+# -----------------------------------------------------------
+# 0.  Make sure Python can import  src.*  from anywhere
+# -----------------------------------------------------------
+export PYTHONPATH="${PYTHONPATH}:${root}"
 
-if [ -f "$envFile" ]; then
-    echo ".env file found at: $envFile"
+# -----------------------------------------------------------
+# 1.  Locate the azd-generated .env (first match)
+# -----------------------------------------------------------
+envFile="$(find "$azurePath" -type f -name '.env' | head -n 1)"
+if [ -z "$envFile" ] || [ ! -f "$envFile" ]; then
+  echo "❌  No .env found under $azurePath – run 'azd up' first."
+  exit 1
+fi
+echo "✅  Found azd .env: $envFile"
+
+set -a && . "$envFile" && set +a   # export everything
+
+# -----------------------------------------------------------
+# 2.  Overlay azd env (if jq + azd available)
+# -----------------------------------------------------------
+if command -v azd >/dev/null; then
+  if azdJson="$(azd env get-values --output json 2>/dev/null)" && echo "$azdJson" | grep -q '^{'; then
+    if command -v jq >/dev/null; then
+      echo "🔄  Overlaying variables from azd environment"
+      eval "$(echo "$azdJson" | jq -r 'to_entries|.[]|"export \(.key)=\(.value)"')"
+    else
+      echo "⚠️  jq not installed; skipping azd overlay."
+    fi
+  fi
+fi
+
+# -----------------------------------------------------------
+# 3.  Build the frontend (if present)
+# -----------------------------------------------------------
+if [ -d "$frontendPath" ]; then
+  echo "▶️  Installing & building frontend"
+  (cd "$frontendPath" && npm install && npm run build)
 else
-    echo ".env file not found. Please run azd up and ensure it completes successfully."
-    exit 1
+  echo "ℹ️  No frontend directory – skipping npm build"
 fi
 
-# Load azd environment variables
-echo 'Loading azd environment variables'
-azdEnv=$(azd env get-values --output json)
-
-# Check if the azd command succeeded
-if [ $? -ne 0 ]; then
-    echo "Failed to load azd environment variables. Ensure azd is installed and configured correctly."
-    exit 1
+# -----------------------------------------------------------
+# 4.  Create venv & install deps (if not yet created)
+# -----------------------------------------------------------
+if [ ! -d "$venvPath" ]; then
+  echo "🐍  Creating virtualenv"
+  python3 -m venv "$venvPath"
+  "$venvPath/bin/pip" install --quiet -r "$backendPath/requirements.txt"
 fi
 
-# Parse and export each environment variable in the current shell session
-eval $(echo "$azdEnv" | jq -r 'to_entries | .[] | "export \(.key)=\(.value)"')
-
-echo 'Restore and build frontend'
-cd $frontendPath
-npm install
-npm run build
-
-echo 'Build and start backend'
-cd $root
-
-echo 'Creating Python virtual environment'
-python3 -m venv .venv
-
-echo 'Installing dependencies from "requirements.txt" into virtual environment (in quiet mode)...'
-.venv/bin/python -m pip --quiet --disable-pip-version-check install -r src/backend/requirements.txt
-
-echo 'Starting the app'
-.venv/bin/python "src/backend/app.py"
+# -----------------------------------------------------------
+# 5.  Launch FastAPI with hot-reload
+# -----------------------------------------------------------
+echo "🚀  Starting FastAPI"
+exec "$venvPath/bin/uvicorn" src.backend.app:app \
+     --reload \
+     --host 0.0.0.0 --port 5000 \
+     --app-dir "$root"

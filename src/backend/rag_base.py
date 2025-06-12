@@ -6,17 +6,26 @@ from typing import List
 import uuid
 from abc import ABC, abstractmethod
 from enum import Enum
-from aiohttp import web
-import instructor
+
+import asyncio
+from fastapi import FastAPI, Request
+# PATCHED: Use EventSourceResponse from sse_starlette
+from sse_starlette.sse import EventSourceResponse
+# PATCH: Make instructor optional
+try:
+    import instructor
+    INSTRUCTOR_AVAILABLE = True
+except ImportError:
+    INSTRUCTOR_AVAILABLE = False
 from openai import AsyncAzureOpenAI
-from grounding_retriever import GroundingRetriever
-from models import (
+from src.backend.grounding_retriever import GroundingRetriever
+from src.backend.models import (
     AnswerFormat,
     SearchConfig,
     GroundingResult,
     GroundingResults,
 )
-from processing_step import ProcessingStep
+from src.backend.processing_step import ProcessingStep
 
 logger = logging.getLogger("rag")
 
@@ -31,6 +40,25 @@ class MessageType(Enum):
     INFO = "info"
 
 
+class SSEStream:
+    def __init__(self):
+        self.queue: asyncio.Queue = asyncio.Queue()
+
+    async def send(self, event: str, data: dict):
+        await self.queue.put((event, data))
+
+    async def close(self):
+        await self.queue.put(None)
+
+    async def __aiter__(self):
+        while True:
+            item = await self.queue.get()
+            if item is None:
+                break
+            event, data = item
+            yield f"event:{event}\ndata: {json.dumps(data)}\n\n"
+
+
 class RagBase(ABC):
     def __init__(
         self,
@@ -40,7 +68,7 @@ class RagBase(ABC):
         self.openai_client = openai_client
         self.chatcompletions_model_name = chatcompletions_model_name
 
-    async def _handle_request(self, request: web.Request):
+    async def _handle_request(self, request: Request):
         request_params = await request.json()
         search_text = request_params.get("query", "")
         chat_thread = request_params.get("chatThread", [])
@@ -53,24 +81,29 @@ class RagBase(ABC):
             use_knowledge_agent=config_dict.get("use_knowledge_agent", False),
         )
         request_id = request_params.get("request_id", str(int(time.time())))
-        response = await self._create_stream_response(request)
-        try:
-            await self._process_request(
-                request_id, response, search_text, chat_thread, search_config
-            )
-        except Exception as e:
-            print(e)
-            logger.error(f"Error processing request: {str(e)}")
-            await self._send_error_message(request_id, response, str(e))
+        stream = SSEStream()
 
-        await self._send_end(response)
-        return response
+        async def process():
+            try:
+                await self._process_request(
+                    request_id, stream, search_text, chat_thread, search_config
+                )
+            except Exception as e:
+                logger.error(f"Error processing request: {str(e)}")
+                await self._send_error_message(request_id, stream, str(e))
+            finally:
+                await self._send_end(stream)
+                await stream.close()
+
+        asyncio.create_task(process())
+
+        return EventSourceResponse(stream)
 
     @abstractmethod
     async def _process_request(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         search_text: str,
         chat_thread: list,
         search_config: SearchConfig,
@@ -80,7 +113,7 @@ class RagBase(ABC):
     async def _formulate_response(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         messages: list,
         grounding_retriever: GroundingRetriever,
         grounding_results: GroundingResults,
@@ -91,7 +124,7 @@ class RagBase(ABC):
         logger.info("Formulating LLM response")
         await self._send_processing_step_message(
             request_id,
-            response,
+            stream,
             ProcessingStep(title="LLM Payload", type="code", content=messages),
         )
 
@@ -112,7 +145,7 @@ class RagBase(ABC):
             async for stream_response in chat_stream_response:
                 if stream_response.answer is not None:
                     await self._send_answer_message(
-                        request_id, response, msg_id, stream_response.answer
+                        request_id, stream, msg_id, stream_response.answer
                     )
                     complete_response = stream_response.model_dump()
             if len(complete_response.keys()) == 0:
@@ -132,7 +165,7 @@ class RagBase(ABC):
 
             if chat_completion is not None:
                 await self._send_answer_message(
-                    request_id, response, msg_id, chat_completion.answer
+                    request_id, stream, msg_id, chat_completion.answer
                 )
                 complete_response = chat_completion.model_dump()
             else:
@@ -140,7 +173,7 @@ class RagBase(ABC):
 
         await self._extract_and_send_citations(
             request_id,
-            response,
+            stream,
             grounding_retriever,
             grounding_results["references"],
             complete_response["text_citations"] or [],
@@ -150,7 +183,7 @@ class RagBase(ABC):
     async def _extract_and_send_citations(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         grounding_retriever: GroundingRetriever,
         grounding_results: List[GroundingResult],
         text_citation_ids: list,
@@ -166,7 +199,7 @@ class RagBase(ABC):
 
         await self._send_citation_message(
             request_id,
-            response,
+            stream,
             request_id,
             citations.get("text_citations", []),
             citations.get("image_citations", []),
@@ -182,26 +215,13 @@ class RagBase(ABC):
     ) -> dict:
         pass
 
-    async def _create_stream_response(self, request):
-        """Creates and prepares the SSE stream response."""
-        response = web.StreamResponse(
-            status=200,
-            reason="OK",
-            headers={
-                "Content-Type": "text/event-stream",
-                "Connection": "keep-alive",
-                "Cache-Control": "no-cache, no-transform",
-            },
-        )
-        await response.prepare(request)
-        return response
 
     async def _send_error_message(
-        self, request_id: str, response: web.StreamResponse, message: str
+        self, request_id: str, stream: SSEStream, message: str
     ):
         """Sends an error message through the stream."""
         await self._send_message(
-            response,
+            stream,
             MessageType.ERROR.value,
             {
                 "request_id": request_id,
@@ -213,13 +233,13 @@ class RagBase(ABC):
     async def _send_info_message(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         message: str,
         details: str = None,
     ):
         """Sends an info message through the stream."""
         await self._send_message(
-            response,
+            stream,
             MessageType.INFO.value,
             {
                 "request_id": request_id,
@@ -232,14 +252,14 @@ class RagBase(ABC):
     async def _send_processing_step_message(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         processing_step: ProcessingStep,
     ):
         logger.info(
             f"Sending processing step message for step: {processing_step.title}"
         )
         await self._send_message(
-            response,
+            stream,
             MessageType.ProcessingStep.value,
             {
                 "request_id": request_id,
@@ -251,12 +271,12 @@ class RagBase(ABC):
     async def _send_answer_message(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         message_id: str,
         content: str,
     ):
         await self._send_message(
-            response,
+            stream,
             MessageType.ANSWER.value,
             {
                 "request_id": request_id,
@@ -269,14 +289,14 @@ class RagBase(ABC):
     async def _send_citation_message(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         message_id: str,
         text_citations: list,
         image_citations: list,
     ):
 
         await self._send_message(
-            response,
+            stream,
             MessageType.CITATION.value,
             {
                 "request_id": request_id,
@@ -286,11 +306,9 @@ class RagBase(ABC):
             },
         )
 
-    async def _send_message(self, response, event, data):
+    async def _send_message(self, stream: SSEStream, event: str, data: dict):
         try:
-            await response.write(
-                f"event:{event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
-            )
+            await stream.send(event, data)
         except ConnectionResetError:
             # TODO: Something is wrong here, the messages attempted and failed here is not what the UI sees, thats another set of stream...
             # logger.warning("Connection reset by client.")
@@ -298,9 +316,9 @@ class RagBase(ABC):
         except Exception as e:
             logger.error(f"Error sending message: {e}")
 
-    async def _send_end(self, response):
-        await self._send_message(response, MessageType.END.value, {})
+    async def _send_end(self, stream: SSEStream):
+        await self._send_message(stream, MessageType.END.value, {})
 
-    def attach_to_app(self, app, path):
-        """Attaches the handler to the web app."""
-        app.router.add_post(path, self._handle_request)
+    def attach_to_app(self, app: FastAPI, path: str):
+        """Attaches the handler to the FastAPI app."""
+        app.post(path)(self._handle_request)

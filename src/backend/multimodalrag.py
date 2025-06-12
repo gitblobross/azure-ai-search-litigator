@@ -1,23 +1,25 @@
 import json
 import logging
 from os import path
-from aiohttp import web
 from azure.search.documents.aio import SearchClient
-from azure.search.documents.agent import KnowledgeAgentRetrievalClient
+try:
+    from azure.search.documents.agent import KnowledgeAgentRetrievalClient
+except ImportError:
+    KnowledgeAgentRetrievalClient = None
 from azure.storage.blob import ContainerClient
 from openai import AsyncAzureOpenAI
 from typing import List
-from grounding_retriever import GroundingRetriever
-from knowledge_agent import KnowledgeAgentGrounding
-from helpers import get_blob_as_base64
-from search_grounding import SearchGroundingRetriever
-from rag_base import RagBase
-from data_model import DataModel
-from prompts import (
+from src.backend.grounding_retriever import GroundingRetriever
+from src.backend.knowledge_agent import KnowledgeAgentGrounding
+from src.backend.helpers import get_blob_as_base64
+from src.backend.search_grounding import SearchGroundingRetriever
+from src.backend.rag_base import RagBase, SSEStream
+from src.backend.data_model import DataModel
+from src.backend.prompts import (
     SYSTEM_PROMPT_NO_META_DATA,
 )
-from processing_step import ProcessingStep
-from models import GroundingResult, Message, SearchConfig, GroundingResults
+from src.backend.processing_step import ProcessingStep
+from src.backend.models import GroundingResult, Message, SearchConfig, GroundingResults
 
 logger = logging.getLogger("multimodalrag")
 
@@ -45,7 +47,7 @@ class MultimodalRag(RagBase):
     async def _process_request(
         self,
         request_id: str,
-        response: web.StreamResponse,
+        stream: SSEStream,
         user_message: str,
         chat_thread: list,
         search_config: SearchConfig,
@@ -53,14 +55,14 @@ class MultimodalRag(RagBase):
         """Processes a chat request through the RAG pipeline."""
         await self._send_processing_step_message(
             request_id,
-            response,
+            stream,
             ProcessingStep(title="Search config", type="code", content=search_config),
         )
 
         try:
             await self._send_processing_step_message(
                 request_id,
-                response,
+                stream,
                 ProcessingStep(
                     title="Grounding the user message",
                     type="code",
@@ -76,7 +78,7 @@ class MultimodalRag(RagBase):
 
             await self._send_processing_step_message(
                 request_id,
-                response,
+                stream,
                 ProcessingStep(
                     title="Grounding results received",
                     type="code",
@@ -87,7 +89,7 @@ class MultimodalRag(RagBase):
 
         except Exception as e:
             await self._send_error_message(
-                request_id, response, "Grounding failed: " + str(e)
+                request_id, stream, "Grounding failed: " + str(e)
             )
             return
 
@@ -97,7 +99,7 @@ class MultimodalRag(RagBase):
 
         await self._formulate_response(
             request_id,
-            response,
+            stream,
             messages,
             grounding_retriever,
             grounding_results,

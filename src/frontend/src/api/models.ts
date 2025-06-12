@@ -71,3 +71,11 @@ export interface ProcessingStepsMessage {
     request_id: string;
     processingStep: ProcessingStep;
 }
+
+export interface ChatRequestMessage {
+    role: RoleType;
+    content: {
+        text: string | undefined;
+        type: string;
+    }[];
+}
