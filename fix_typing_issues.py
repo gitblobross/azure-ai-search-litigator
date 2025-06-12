@@ -44,11 +44,11 @@ def fix_search_grounding():
     t = p.read_text()
     t = re.sub(r"from azure\\.search\\.documents import VectorQuery.*\n", "", t)
     t = re.sub(
-        r"vector_queries=payload\['vector_queries'\]", "vector_queries=payload.get('vector_queries')", t
+        r"vector_queries=payload\['vector_queries'\]",
+        "vector_queries=payload.get('vector_queries')",
+        t,
     )
-    t = re.sub(
-        r"select=payload\['select'\]", "select=payload.get('select')", t
-    )
+    t = re.sub(r"select=payload\['select'\]", "select=payload.get('select')", t)
     p.write_text(t)
 
 
