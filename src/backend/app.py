@@ -157,7 +157,7 @@ app = FastAPI(
 )
 
 # 2️⃣ Mount static & attach RAG endpoints
-app.mount("/", StaticFiles(directory=clients['current_directory'] / "static"), name="static")
+app.mount("/static", StaticFiles(directory=clients['current_directory'] / "static"), name="static")
 clients['mmrag'].attach_to_app(app, "/chat")
 clients['mmrag'].attach_to_app(app, "/multiindex_chat")
 

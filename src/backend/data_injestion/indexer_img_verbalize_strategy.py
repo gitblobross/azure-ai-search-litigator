@@ -41,15 +41,15 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     VectorSearchProfile,
 )
-from data_injestion.models import ProcessRequest
-from data_injestion.skills import (
+from .models import ProcessRequest
+from .skills import (
     getAzureOpenAIEmbeddingSkill,
     getAzureOpenAIEmbeddingSkillForVerbalizedImage,
     getChatCompletionSkill,
     getDocumentIntelligenceLayOutSkill,
     getShaperSkill,
 )
-from data_injestion.strategy import Strategy
+from .strategy import Strategy
 
 
 class IndexerImgVerbalizationStrategy(Strategy):

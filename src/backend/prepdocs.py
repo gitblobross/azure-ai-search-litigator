@@ -14,13 +14,14 @@ from openai import AsyncAzureOpenAI, api_version
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.indexes.aio import SearchIndexClient, SearchIndexerClient
 from azure.storage.blob.aio import BlobServiceClient
-from data_injestion.models import ProcessRequest
-from data_injestion.indexer_img_verbalize_strategy import (
+# Local imports – note the missing "g" in the folder name is intentional.
+from .data_injestion.models import ProcessRequest
+from .data_injestion.indexer_img_verbalize_strategy import (
     IndexerImgVerbalizationStrategy,
 )
-from data_injestion.strategy import Strategy
-from constants import USER_AGENT
-from processfile import ProcessFile
+from .data_injestion.strategy import Strategy
+from .constants import USER_AGENT
+from .processfile import ProcessFile
 from azure.identity.aio import DefaultAzureCredential
 import argparse
 

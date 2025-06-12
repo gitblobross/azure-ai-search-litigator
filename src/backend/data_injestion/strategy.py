@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import asyncio
 
-from data_injestion.models import ProcessRequest
+from .models import ProcessRequest
 
 
 class Strategy(ABC):
