@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, TypedDict
+from typing import List, Dict, TypedDict, Optional
 from openai import AsyncAzureOpenAI
 from src.backend.data_model import DataModel
 from src.backend.prompts import SEARCH_QUERY_SYSTEM_PROMPT
@@ -35,13 +35,19 @@ class SearchGroundingRetriever(GroundingRetriever):
 
         try:
             payload = self.data_model.create_search_payload(query, options)
-
+            # Only pass the correct types to the SDK
+            search_text = str(payload["search"])
+            top = int(payload["top"])
+            query_type = payload.get("query_type", "simple")
+            select = payload.get("select", None)
+            select_list = None
+            if select and isinstance(select, str):
+                select_list = [s.strip() for s in select.split(",") if s.strip()]
             search_results = await self.search_client.search(
-                search_text=payload["search"],
-                top=payload["top"],
-                vector_queries=payload["vector_queries"],
-                query_type=payload.get("query_type", "simple"),
-                select=payload["select"],
+                search_text=search_text,
+                top=top,
+                query_type=query_type,
+                select=select_list,
             )
         except Exception as e:
             raise Exception(f"Azure AI Search request failed: {str(e)}")

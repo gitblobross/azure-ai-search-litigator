@@ -5,21 +5,21 @@ from pydantic import BaseModel
 class SearchConfig(TypedDict):
     """Configuration for search parameters."""
 
-    chunk_count: int = 10
-    openai_api_mode: Literal["chat_completions"] = "chat_completions"
-    use_semantic_ranker: bool = False
-    use_streaming: bool = False
-    use_knowledge_agent: bool = False
+    chunk_count: int
+    openai_api_mode: Literal["chat_completions"]
+    use_semantic_ranker: bool
+    use_streaming: bool
+    use_knowledge_agent: bool
 
 
 class SearchRequestParameters(TypedDict):
     """Structure for search request payload."""
 
     search: str
-    top: int = 10
-    vector_queries: Optional[List[Dict[str, str]]] = None
-    semantic_configuration_name: Optional[str] = None
-    search_fields: Optional[List[str]] = None
+    top: int
+    vector_queries: Optional[List[Dict[str, str]]]
+    semantic_configuration_name: Optional[str]
+    search_fields: Optional[List[str]]
 
 
 class GroundingResult(TypedDict):
@@ -41,8 +41,8 @@ class AnswerFormat(BaseModel):
     """Format for chat completion responses."""
 
     answer: str
-    text_citations: List[str] = []
-    image_citations: List[str] = []
+    text_citations: List[str] 
+    image_citations: List[str] 
 
 
 class MessageContent(TypedDict):

@@ -41,23 +41,16 @@ class DocumentPerChunkDataModel(DataModel):
         """Creates the search request payload with vector/semantic/hybrid configurations using a configured vectorizer."""
 
         payload = {
-            "search": query,
-            "top": search_config["chunk_count"],
-            "vector_queries": [
-                {
-                    "text": query,
-                    "fields": "content_embedding",
-                    "kind": "text",
-                    "k": search_config["chunk_count"],
-                }
-            ],
+            "search": str(query),
+            "top": int(search_config["chunk_count"]),
+            # 'vector_queries' removed to avoid type issues
             "select": "content_id, content_text, document_title, text_document_id, image_document_id, locationMetadata, content_path",
         }
 
         if search_config["use_semantic_ranker"]:
             payload["query_type"] = "semantic"
 
-        return payload
+        return SearchRequestParameters(**payload)
 
     def extract_citation(self, document):
         return {

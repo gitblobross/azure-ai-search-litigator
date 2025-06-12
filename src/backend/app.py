@@ -2,10 +2,10 @@ import os
 from dotenv import load_dotenv
 
 # Load .env file
-load_dotenv(dotenv_path='/workspaces/azure-ai-search-multimodal-sample/.azure/.env')
+load_dotenv(dotenv_path="/workspaces/azure-ai-search-multimodal-sample/.azure/.env")
 
 # You can access your environment variables here
-model_name = os.getenv('AZURE_OPENAI_MODEL_NAME')
+model_name = os.getenv("AZURE_OPENAI_MODEL_NAME")
 print(f"Loaded model name: {model_name}")
 import logging
 import os
@@ -18,14 +18,16 @@ from openai import AsyncAzureOpenAI
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents.aio import SearchClient
 from azure.search.documents.indexes.aio import SearchIndexClient
+
 try:
     from azure.search.documents.agent.aio import KnowledgeAgentRetrievalClient
+
     AGENT_AVAILABLE = True
 except ImportError:
     KnowledgeAgentRetrievalClient = None
     AGENT_AVAILABLE = False
 from azure.core.pipeline.policies import UserAgentPolicy
-from azure.storage.blob.aio import BlobServiceClient
+from azure.storage.blob.aio import BlobServiceClient, ContainerClient
 from src.backend.search_grounding import SearchGroundingRetriever
 from src.backend.knowledge_agent import KnowledgeAgentGrounding
 from src.backend.constants import USER_AGENT
@@ -45,18 +47,25 @@ REQUIRED_ENV_VARS = [
     "ARTIFACTS_STORAGE_CONTAINER",
 ]
 
+
 def check_required_env_vars():
     missing = [v for v in REQUIRED_ENV_VARS if not os.environ.get(v)]
     if missing:
-        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}. Please check your .env file.")
+        raise RuntimeError(
+            f"Missing required environment variables: {', '.join(missing)}. Please check your .env file."
+        )
+
 
 check_required_env_vars()
 
 from fastapi import Header, Depends
+from typing import Optional
+
 
 def get_api_key(x_api_key: str = Header(default=None)):
     # Accept any key or no key in dev/demo
     return x_api_key
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +73,7 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[RichHandler(rich_tracebacks=True)],
 )
+
 
 def inject_clients():
     tokenCredential = DefaultAzureCredential()
@@ -79,6 +89,7 @@ def inject_clients():
     openai_deployment_name = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
     from azure.core.credentials import AzureKeyCredential
+
     search_key = os.environ["SEARCH_KEY"]
     search_client = SearchClient(
         endpoint=search_endpoint,
@@ -113,7 +124,9 @@ def inject_clients():
             chatcompletions_model_name,
         )
     else:
-        knowledge_agent = None  # Not available in public SDK; classic search only
+        knowledge_agent = (
+            None
+        )  # type: Optional[KnowledgeAgentGrounding]  # Not available in public SDK; classic search only
 
     openai_client = AsyncAzureOpenAI(
         azure_ad_token_provider=tokenProvider,
@@ -152,44 +165,49 @@ def inject_clients():
     current_directory = Path(__file__).parent
 
     return {
-        'index_client': index_client,
-        'mmrag': mmrag,
-        'citation_files_handler': citation_files_handler,
-        'current_directory': current_directory
+        "index_client": index_client,
+        "mmrag": mmrag,
+        "citation_files_handler": citation_files_handler,
+        "current_directory": current_directory,
     }
 
-clients = inject_clients()
-app = FastAPI(
-    title="Litigator – Multi-Index RAG API",
-    version="1.0.0",
-    description="…"
-)
 
-# 2️⃣ Mount static & attach RAG endpoints
-app.mount("/static", StaticFiles(directory=clients['current_directory'] / "static"), name="static")
-clients['mmrag'].attach_to_app(app, "/chat")
-clients['mmrag'].attach_to_app(app, "/multiindex_chat")
+clients = inject_clients()
+app = FastAPI(title="Litigator – Multi-Index RAG API", version="1.0.0", description="…")
+
+# 2️⃣ Mount static under /static, so API routes remain free
+app.mount(
+    "/static",
+    StaticFiles(directory=clients["current_directory"] / "static"),
+    name="static",
+)
+clients["mmrag"].attach_to_app(app, "/chat")
+app.post("/multiindex_chat")
+
 
 # 3️⃣ Now define your introspection & other routes *below* the app object
 @app.get("/routes")
 def list_routes():
     return [route.path for route in app.router.routes]
 
+
 @app.get("/")
 async def root():
-    return FileResponse(clients['current_directory'] / "static/index.html")
+    return FileResponse(clients["current_directory"] / "static/index.html")
+
 
 @app.get("/list_indexes")
 async def list_indexes():
-    index_client = clients['index_client']
+    index_client = clients["index_client"]
     indexes = []
     async for idx in index_client.list_indexes():
         indexes.append(idx.name)
     return indexes
 
+
 # ── line 174 decorator ──
 @app.post("/get_citation_doc")
 async def get_citation_doc(request: Request):
     # ← this block must be indented under the def
-    citation_files_handler = clients['citation_files_handler']
+    citation_files_handler = clients["citation_files_handler"]
     return await citation_files_handler.handle(request)
